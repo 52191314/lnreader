@@ -138,6 +138,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
     webViewRef,
     onUserInteraction,
     isTTSReadingRef,
+    refetch,
   } = useChapterContext();
   const theme = useTheme();
   const initialReaderSettings = useMemo(
@@ -551,6 +552,9 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
             }
             case 'hide':
               onPress();
+              break;
+            case 'refresh':
+              refetch();
               break;
             case 'next':
               nextChapterScreenVisible.current = true;
