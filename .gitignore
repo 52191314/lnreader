@@ -114,3 +114,6 @@ release-artifacts/
 !plugins/android/
 ios/
 !modules/**/ios/
+
+# Local build guide (machine-specific: paths, env fixes)
+BUILD_GUIDE.md
