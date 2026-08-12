@@ -1,12 +1,19 @@
 import isNil from 'lodash-es/isNil';
 
 export const parseChapterNumber = (
-  novelName: string,
-  chapterName: string,
+  novelName?: string | null,
+  chapterName?: string | null,
   chapterNumber?: number,
 ): number => {
   if (chapterNumber != null && chapterNumber > -1) {
     return chapterNumber;
+  }
+
+  // Guard against legacy/dirty rows (restored backups, pre-schema data)
+  // where a name can be null/undefined — the callers feed DB values straight
+  // in, and a missing title must never crash a whole screen.
+  if (typeof novelName !== 'string' || typeof chapterName !== 'string') {
+    return chapterNumber ?? -1;
   }
 
   const basic = new RegExp(/(?<=ch[^\d]*[\s]*)([0-9]+)(\.[0-9]+)?(\.?[a-z]+)?/);
