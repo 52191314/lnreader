@@ -4,9 +4,17 @@ import sanitizeHtml from 'sanitize-html';
 const PLUGIN_ISSUE_REPORT_URL =
   'https://github.com/lnreader/lnreader-plugins/issues/new';
 
+/** Custom-scheme URL used by the "Refresh chapter" link on the empty-chapter
+ * message; intercepted in the reader WebView so it re-fetches instead of
+ * navigating. */
+export const CHAPTER_REFRESH_URL = 'lnreader://refresh-chapter';
+
 export const isPluginIssueReportUrl = (url: string): boolean =>
   url === PLUGIN_ISSUE_REPORT_URL ||
   url.startsWith(`${PLUGIN_ISSUE_REPORT_URL}?`);
+
+export const isChapterRefreshUrl = (url: string): boolean =>
+  url === CHAPTER_REFRESH_URL;
 
 const escapeHtml = (value: string): string =>
   value.replace(
@@ -112,6 +120,7 @@ export const sanitizeChapterText = (
       reportUrl: escapeHtml(
         getPluginIssueReportUrl(pluginId, novelName, chapterName),
       ),
+      refreshUrl: escapeHtml(CHAPTER_REFRESH_URL),
     })
   );
 };
