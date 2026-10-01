@@ -7,7 +7,7 @@
 import './mockDb';
 import { setupTestDatabase, getTestDb, teardownTestDatabase } from './setup';
 import { insertTestNovel, insertTestChapter, clearAllTables } from './testData';
-import { chapterSchema } from '@database/schema';
+import { chapterSchema, novelSchema } from '@database/schema';
 import { eq } from 'drizzle-orm';
 
 import {
@@ -46,6 +46,7 @@ import {
   updateChapterProgress,
   updateChapterProgressByIds,
   markPreviuschaptersRead,
+  markPreviousChaptersRead,
   markPreviousChaptersUnread,
   clearUpdates,
   getFirstUnreadChapter,
@@ -206,6 +207,12 @@ describe('ChapterQueries', () => {
       const chapter2 = chapters.find(c => c.id === chapterId2);
       expect(chapter1?.unread).toBe(false);
       expect(chapter2?.unread).toBe(false);
+
+      const [novel] = await getTestDb()
+        .drizzleDb.select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(novel?.chaptersUnread).toBe(0);
     });
 
     it('should handle empty array', async () => {
@@ -225,6 +232,44 @@ describe('ChapterQueries', () => {
       const chapters = await getNovelChapters(novelId);
       const chapter = chapters.find(c => c.id === chapterId);
       expect(chapter?.unread).toBe(false);
+    });
+
+    it('should update chapters across multiple novels and preserve update trigger', async () => {
+      const testDb = getTestDb();
+
+      const novel1 = await insertTestNovel(testDb, { inLibrary: true });
+      const novel2 = await insertTestNovel(testDb, { inLibrary: true });
+      const n1c1 = await insertTestChapter(testDb, novel1, { unread: true });
+      const n1c2 = await insertTestChapter(testDb, novel1, { unread: true });
+      const n2c1 = await insertTestChapter(testDb, novel2, { unread: true });
+      await insertTestChapter(testDb, novel2, { unread: true });
+
+      await markChaptersRead([n1c1, n2c1]);
+
+      const [updatedNovel1] = await testDb.drizzleDb
+        .select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novel1));
+      const [updatedNovel2] = await testDb.drizzleDb
+        .select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novel2));
+
+      expect(updatedNovel1?.chaptersUnread).toBe(1);
+      expect(updatedNovel2?.chaptersUnread).toBe(1);
+
+      // Verify trigger is preserved and fires on subsequent single-chapter update
+      await testDb.drizzleDb
+        .update(chapterSchema)
+        .set({ unread: false })
+        .where(eq(chapterSchema.id, n1c2))
+        .run();
+
+      const [postTriggerNovel1] = await testDb.drizzleDb
+        .select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novel1));
+      expect(postTriggerNovel1?.chaptersUnread).toBe(0);
     });
   });
 
@@ -247,6 +292,25 @@ describe('ChapterQueries', () => {
       const chapter2 = chapters.find(c => c.id === chapterId2);
       expect(chapter1?.unread).toBe(true);
       expect(chapter2?.unread).toBe(true);
+
+      const [novel] = await getTestDb()
+        .drizzleDb.select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(novel?.chaptersUnread).toBe(2);
+
+      // Verify trigger is preserved and fires on subsequent single-chapter update
+      await testDb.drizzleDb
+        .update(chapterSchema)
+        .set({ unread: false })
+        .where(eq(chapterSchema.id, chapterId1))
+        .run();
+
+      const [postTriggerNovel] = await testDb.drizzleDb
+        .select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(postTriggerNovel?.chaptersUnread).toBe(1);
     });
 
     it('should handle empty array', async () => {
@@ -267,6 +331,12 @@ describe('ChapterQueries', () => {
 
       const chapters = await getNovelChapters(novelId);
       expect(chapters.every(c => c.unread === false)).toBe(true);
+
+      const [novel] = await getTestDb()
+        .drizzleDb.select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(novel?.chaptersUnread).toBe(0);
     });
 
     it('should handle novel with no chapters', async () => {
@@ -283,13 +353,32 @@ describe('ChapterQueries', () => {
       const testDb = getTestDb();
 
       const novelId = await insertTestNovel(testDb, { inLibrary: true });
-      await insertTestChapter(testDb, novelId, { unread: false });
+      const c1 = await insertTestChapter(testDb, novelId, { unread: false });
       await insertTestChapter(testDb, novelId, { unread: false });
 
       await markAllChaptersUnread(novelId);
 
       const chapters = await getNovelChapters(novelId);
       expect(chapters.every(c => c.unread === true)).toBe(true);
+
+      const [novel] = await getTestDb()
+        .drizzleDb.select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(novel?.chaptersUnread).toBe(2);
+
+      // Verify trigger is preserved
+      await testDb.drizzleDb
+        .update(chapterSchema)
+        .set({ unread: false })
+        .where(eq(chapterSchema.id, c1))
+        .run();
+
+      const [postTriggerNovel] = await testDb.drizzleDb
+        .select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(postTriggerNovel?.chaptersUnread).toBe(1);
     });
   });
 
@@ -661,7 +750,7 @@ describe('ChapterQueries', () => {
   });
 
   describe('markPreviuschaptersRead', () => {
-    it('should mark previous chapters as read', async () => {
+    it('should mark previous chapters as read and preserve update trigger', async () => {
       const testDb = getTestDb();
       const novelId = await insertTestNovel(testDb, { inLibrary: true });
       const chapterId1 = await insertTestChapter(testDb, novelId, {
@@ -686,11 +775,45 @@ describe('ChapterQueries', () => {
       expect(chapter1?.unread).toBe(false);
       expect(chapter2?.unread).toBe(false);
       expect(chapter3?.unread).toBe(true);
+
+      const [novel] = await getTestDb()
+        .drizzleDb.select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(novel?.chaptersUnread).toBe(1);
+
+      // Verify trigger is preserved
+      await testDb.drizzleDb
+        .update(chapterSchema)
+        .set({ unread: false })
+        .where(eq(chapterSchema.id, chapterId3))
+        .run();
+
+      const [postTriggerNovel] = await testDb.drizzleDb
+        .select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(postTriggerNovel?.chaptersUnread).toBe(0);
+    });
+
+    it('works identically via markPreviousChaptersRead alias', async () => {
+      const testDb = getTestDb();
+      const novelId = await insertTestNovel(testDb, { inLibrary: true });
+      const c1 = await insertTestChapter(testDb, novelId, { unread: true });
+      await insertTestChapter(testDb, novelId, { unread: true });
+
+      await markPreviousChaptersRead(c1, novelId);
+
+      const [novel] = await testDb.drizzleDb
+        .select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(novel?.chaptersUnread).toBe(1);
     });
   });
 
   describe('markPreviousChaptersUnread', () => {
-    it('should mark previous chapters as unread', async () => {
+    it('should mark previous chapters as unread and preserve update trigger', async () => {
       const testDb = getTestDb();
       const novelId = await insertTestNovel(testDb, { inLibrary: true });
       const chapterId1 = await insertTestChapter(testDb, novelId, {
@@ -715,6 +838,25 @@ describe('ChapterQueries', () => {
       expect(chapter1?.unread).toBe(true);
       expect(chapter2?.unread).toBe(true);
       expect(chapter3?.unread).toBe(false);
+
+      const [novel] = await getTestDb()
+        .drizzleDb.select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(novel?.chaptersUnread).toBe(2);
+
+      // Verify trigger is preserved
+      await testDb.drizzleDb
+        .update(chapterSchema)
+        .set({ unread: false })
+        .where(eq(chapterSchema.id, chapterId1))
+        .run();
+
+      const [postTriggerNovel] = await testDb.drizzleDb
+        .select()
+        .from(novelSchema)
+        .where(eq(novelSchema.id, novelId));
+      expect(postTriggerNovel?.chaptersUnread).toBe(1);
     });
   });
 

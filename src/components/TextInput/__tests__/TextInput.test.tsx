@@ -1,3 +1,7 @@
+import './mocks';
+import { render, screen, fireEvent } from '@testing-library/react-native';
+import TextInput from '../index';
+
 jest.mock('react-native-gesture-handler', () => {
   const RN = require('react-native');
   const View = RN.View || require('react-native').View;
@@ -24,10 +28,6 @@ jest.mock('react-native-gesture-handler', () => {
     },
   };
 });
-
-import './mocks';
-import { render, screen, fireEvent } from '@testing-library/react-native';
-import TextInput from '../index';
 
 const mockUseTheme = jest.fn();
 

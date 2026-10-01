@@ -134,12 +134,37 @@ export const markChaptersRead = async (chapterIds: number[]): Promise<void> => {
     return;
   }
   await dbManager.write(async tx => {
-    for (const ids of chunkChapterIds(chapterIds)) {
-      await tx
-        .update(chapterSchema)
-        .set({ unread: false })
-        .where(inArray(chapterSchema.id, ids))
-        .run();
+    await tx.run(
+      sql.raw('DROP TRIGGER IF EXISTS update_novel_stats_on_update'),
+    );
+    try {
+      const novelIdSet = new Set<number>();
+      for (const ids of chunkChapterIds(chapterIds)) {
+        const rows = await tx
+          .selectDistinct({ novelId: chapterSchema.novelId })
+          .from(chapterSchema)
+          .where(inArray(chapterSchema.id, ids));
+        for (const row of rows) {
+          novelIdSet.add(row.novelId);
+        }
+        await tx
+          .update(chapterSchema)
+          .set({ unread: false })
+          .where(inArray(chapterSchema.id, ids))
+          .run();
+      }
+
+      for (const novelId of novelIdSet) {
+        await tx
+          .update(novelSchema)
+          .set({
+            chaptersUnread: sql`(SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id AND Chapter.unread = 1)`,
+          })
+          .where(eq(novelSchema.id, novelId))
+          .run();
+      }
+    } finally {
+      await tx.run(sql.raw(createNovelTriggerQueryUpdate));
     }
   });
 };
@@ -161,33 +186,84 @@ export const markChaptersUnread = async (
     return;
   }
   await dbManager.write(async tx => {
-    for (const ids of chunkChapterIds(chapterIds)) {
-      await tx
-        .update(chapterSchema)
-        .set({ unread: true })
-        .where(inArray(chapterSchema.id, ids))
-        .run();
+    await tx.run(
+      sql.raw('DROP TRIGGER IF EXISTS update_novel_stats_on_update'),
+    );
+    try {
+      const novelIdSet = new Set<number>();
+      for (const ids of chunkChapterIds(chapterIds)) {
+        const rows = await tx
+          .selectDistinct({ novelId: chapterSchema.novelId })
+          .from(chapterSchema)
+          .where(inArray(chapterSchema.id, ids));
+        for (const row of rows) {
+          novelIdSet.add(row.novelId);
+        }
+        await tx
+          .update(chapterSchema)
+          .set({ unread: true })
+          .where(inArray(chapterSchema.id, ids))
+          .run();
+      }
+
+      for (const novelId of novelIdSet) {
+        await tx
+          .update(novelSchema)
+          .set({
+            chaptersUnread: sql`(SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id AND Chapter.unread = 1)`,
+          })
+          .where(eq(novelSchema.id, novelId))
+          .run();
+      }
+    } finally {
+      await tx.run(sql.raw(createNovelTriggerQueryUpdate));
     }
   });
 };
 
 export const markAllChaptersRead = async (novelId: number): Promise<void> => {
   await dbManager.write(async tx => {
-    await tx
-      .update(chapterSchema)
-      .set({ unread: false })
-      .where(eq(chapterSchema.novelId, novelId))
-      .run();
+    await tx.run(
+      sql.raw('DROP TRIGGER IF EXISTS update_novel_stats_on_update'),
+    );
+    try {
+      await tx
+        .update(chapterSchema)
+        .set({ unread: false })
+        .where(eq(chapterSchema.novelId, novelId))
+        .run();
+      await tx
+        .update(novelSchema)
+        .set({ chaptersUnread: 0 })
+        .where(eq(novelSchema.id, novelId))
+        .run();
+    } finally {
+      await tx.run(sql.raw(createNovelTriggerQueryUpdate));
+    }
   });
 };
 
 export const markAllChaptersUnread = async (novelId: number): Promise<void> => {
   await dbManager.write(async tx => {
-    await tx
-      .update(chapterSchema)
-      .set({ unread: true })
-      .where(eq(chapterSchema.novelId, novelId))
-      .run();
+    await tx.run(
+      sql.raw('DROP TRIGGER IF EXISTS update_novel_stats_on_update'),
+    );
+    try {
+      await tx
+        .update(chapterSchema)
+        .set({ unread: true })
+        .where(eq(chapterSchema.novelId, novelId))
+        .run();
+      await tx
+        .update(novelSchema)
+        .set({
+          chaptersUnread: sql`(SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id AND Chapter.unread = 1)`,
+        })
+        .where(eq(novelSchema.id, novelId))
+        .run();
+    } finally {
+      await tx.run(sql.raw(createNovelTriggerQueryUpdate));
+    }
   });
 };
 
@@ -367,34 +443,64 @@ export const markPreviuschaptersRead = async (
   novelId: number,
 ): Promise<void> => {
   await dbManager.write(async tx => {
-    await tx
-      .update(chapterSchema)
-      .set({ unread: false })
-      .where(
-        and(
-          lte(chapterSchema.id, chapterId),
-          eq(chapterSchema.novelId, novelId),
-        ),
-      )
-      .run();
+    await tx.run(
+      sql.raw('DROP TRIGGER IF EXISTS update_novel_stats_on_update'),
+    );
+    try {
+      await tx
+        .update(chapterSchema)
+        .set({ unread: false })
+        .where(
+          and(
+            lte(chapterSchema.id, chapterId),
+            eq(chapterSchema.novelId, novelId),
+          ),
+        )
+        .run();
+      await tx
+        .update(novelSchema)
+        .set({
+          chaptersUnread: sql`(SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id AND Chapter.unread = 1)`,
+        })
+        .where(eq(novelSchema.id, novelId))
+        .run();
+    } finally {
+      await tx.run(sql.raw(createNovelTriggerQueryUpdate));
+    }
   });
 };
+
+export const markPreviousChaptersRead = markPreviuschaptersRead;
 
 export const markPreviousChaptersUnread = async (
   chapterId: number,
   novelId: number,
 ): Promise<void> => {
   await dbManager.write(async tx => {
-    await tx
-      .update(chapterSchema)
-      .set({ unread: true })
-      .where(
-        and(
-          lte(chapterSchema.id, chapterId),
-          eq(chapterSchema.novelId, novelId),
-        ),
-      )
-      .run();
+    await tx.run(
+      sql.raw('DROP TRIGGER IF EXISTS update_novel_stats_on_update'),
+    );
+    try {
+      await tx
+        .update(chapterSchema)
+        .set({ unread: true })
+        .where(
+          and(
+            lte(chapterSchema.id, chapterId),
+            eq(chapterSchema.novelId, novelId),
+          ),
+        )
+        .run();
+      await tx
+        .update(novelSchema)
+        .set({
+          chaptersUnread: sql`(SELECT COUNT(*) FROM Chapter WHERE Chapter.novelId = Novel.id AND Chapter.unread = 1)`,
+        })
+        .where(eq(novelSchema.id, novelId))
+        .run();
+    } finally {
+      await tx.run(sql.raw(createNovelTriggerQueryUpdate));
+    }
   });
 };
 
@@ -406,9 +512,12 @@ export const clearUpdates = async (): Promise<void> => {
     await tx.run(
       sql.raw('DROP TRIGGER IF EXISTS update_novel_stats_on_update'),
     );
-    await tx.update(chapterSchema).set({ updatedTime: null }).run();
-    await tx.update(novelSchema).set({ lastUpdatedAt: null }).run();
-    await tx.run(sql.raw(createNovelTriggerQueryUpdate));
+    try {
+      await tx.update(chapterSchema).set({ updatedTime: null }).run();
+      await tx.update(novelSchema).set({ lastUpdatedAt: null }).run();
+    } finally {
+      await tx.run(sql.raw(createNovelTriggerQueryUpdate));
+    }
   });
 };
 

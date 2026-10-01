@@ -14,12 +14,16 @@ jest.mock('react-native-device-info', () => ({
     getModel: jest.fn(() => 'mock-model'),
     getSystemName: jest.fn(() => 'Android'),
     getSystemVersion: jest.fn(() => '15'),
+    getVersion: () => '1.0.0',
+    getApplicationName: () => 'LNReader',
     supportedAbis: jest.fn().mockResolvedValue([]),
   },
   getBatteryLevel: jest.fn().mockResolvedValue(1),
   getBatteryLevelSync: jest.fn(() => 1),
   getUserAgentSync: jest.fn(() => 'LNReader test'),
   useBatteryLevel: jest.fn(() => 1),
+  getVersion: () => '1.0.0',
+  getApplicationName: () => 'LNReader',
 }));
 
 jest.mock('@modules/native-file', () => ({
@@ -84,5 +88,35 @@ jest.mock('@modules/native-zip-archive', () => ({
     unzip: jest.fn().mockResolvedValue(),
     remoteUnzip: jest.fn().mockResolvedValue(),
     remoteZip: jest.fn().mockResolvedValue(''),
+  },
+}));
+
+jest.mock('@modules/native-background-tasks', () => ({
+  __esModule: true,
+  default: {
+    enqueue: jest.fn().mockResolvedValue('task-1'),
+    cancel: jest.fn().mockResolvedValue(undefined),
+    pause: jest.fn().mockResolvedValue(undefined),
+    resume: jest.fn().mockResolvedValue(undefined),
+    complete: jest.fn().mockResolvedValue(undefined),
+    fail: jest.fn().mockResolvedValue(undefined),
+    getTasks: jest.fn().mockResolvedValue([]),
+    updateProgress: jest.fn(),
+    updateCheckpoint: jest.fn(),
+    scheduleLibraryUpdates: jest.fn().mockResolvedValue(undefined),
+    cancelLibraryUpdates: jest.fn().mockResolvedValue(undefined),
+    scheduleAutomaticBackups: jest.fn().mockResolvedValue(undefined),
+    cancelAutomaticBackups: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: {
+    configure: jest.fn(),
+    hasPlayServices: jest.fn().mockResolvedValue(true),
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+    isSignedIn: jest.fn().mockResolvedValue(false),
+    getTokens: jest.fn().mockResolvedValue({ accessToken: '' }),
   },
 }));

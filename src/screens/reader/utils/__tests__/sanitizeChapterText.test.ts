@@ -104,3 +104,12 @@ describe('isChapterRefreshUrl', () => {
     expect(isChapterRefreshUrl('https://example.com')).toBe(false);
   });
 });
+
+describe('sanitizeOptions', () => {
+  it('disallows object elements and file scheme navigation', () => {
+    const { sanitizeOptions } = require('../sanitizeChapterText');
+    expect(sanitizeOptions.allowedTags).not.toContain('object');
+    expect(sanitizeOptions.allowedSchemes).not.toContain('file');
+    expect(sanitizeOptions.allowedSchemes).toEqual(['data', 'http', 'https']);
+  });
+});

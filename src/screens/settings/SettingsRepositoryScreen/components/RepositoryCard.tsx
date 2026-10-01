@@ -8,7 +8,7 @@ import { ConfirmationDialog, IconButtonV2 } from '@components';
 import Switch from '@components/Switch/Switch';
 
 import { Repository } from '@database/types';
-import { useBoolean } from '@hooks/index';
+import useBoolean from '@hooks/common/useBoolean';
 import { useTheme } from '@hooks/persisted';
 import { showToast } from '@utils/showToast';
 import { getString } from '@i18n/translations';

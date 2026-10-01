@@ -60,7 +60,7 @@ const AdvancedSettings = ({ navigation }: AdvancedSettingsScreenProps) => {
     setIsSharingCrashLogs(true);
     try {
       await shareCrashLogs();
-    } catch (error) {
+    } catch {
       showToast(getString('advancedSettingsScreen.shareCrashLogsFailed'));
     } finally {
       setIsSharingCrashLogs(false);

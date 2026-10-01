@@ -45,30 +45,33 @@ const CodeRoute = ({
   const editIndex = isEditing ? editingSnippet.index : snippetIndex;
   const editIsJS = isEditing ? editingSnippet.isJS : dLang === 'js';
 
-  const [language, setLanguage] = React.useState<'js' | 'css'>('js');
+  const [prevEditing, setPrevEditing] = React.useState({ isEditing, editIsJS });
+  const [language, setLanguage] = React.useState<'js' | 'css'>(
+    isEditing ? (editIsJS ? 'js' : 'css') : 'js',
+  );
 
-  // Update language when editing state changes
-  React.useEffect(() => {
-    if (isEditing) {
-      setLanguage(editIsJS ? 'js' : 'css');
-    } else {
-      setLanguage('js'); // Default to JS for new snippets
-    }
-  }, [isEditing, editIsJS]);
+  if (
+    prevEditing.isEditing !== isEditing ||
+    prevEditing.editIsJS !== editIsJS
+  ) {
+    setPrevEditing({ isEditing, editIsJS });
+    setLanguage(isEditing ? (editIsJS ? 'js' : 'css') : 'js');
+  }
 
   const snippets = language === 'js' ? codeSnippetsJS : codeSnippetsCSS;
   const snippet =
     editIndex === undefined || editIndex === -1 ? null : snippets[editIndex];
 
-  const [title, setTitle] = React.useState<string>('');
-  const [code, setCode] = React.useState<string>('');
+  const [prevSnippet, setPrevSnippet] = React.useState(snippet);
+  const [title, setTitle] = React.useState<string>(snippet?.name ?? '');
+  const [code, setCode] = React.useState<string>(snippet?.code ?? '');
 
-  // Update title, code, and reset errors when snippet changes
-  React.useEffect(() => {
+  if (prevSnippet !== snippet) {
+    setPrevSnippet(snippet);
     setTitle(snippet?.name ?? '');
     setCode(snippet?.code ?? '');
     setError({ title: false, code: false });
-  }, [snippet]);
+  }
 
   const keyboardHeight = useKeyboardHeight();
 
@@ -97,10 +100,12 @@ const CodeRoute = ({
 
     // Editing existing snippet
     if (isEditing && editIndex !== undefined && editIndex !== -1) {
-      snippets[editIndex].name = title;
-      snippets[editIndex].code = code;
+      const nextSnippets = snippets.map((item, index) =>
+        index === editIndex ? { ...item, name: title, code } : item,
+      );
       setSettings({
-        [language === 'js' ? 'codeSnippetsJS' : 'codeSnippetsCSS']: snippets,
+        [language === 'js' ? 'codeSnippetsJS' : 'codeSnippetsCSS']:
+          nextSnippets,
       });
       showToast('Snippet updated successfully');
       onSnippetSaved?.();
@@ -108,14 +113,17 @@ const CodeRoute = ({
     }
 
     // Creating new snippet
-    snippets.push({
-      name: title,
-      code,
-      active: true,
-      lang: language,
-    });
+    const nextSnippets = [
+      ...snippets,
+      {
+        name: title,
+        code,
+        active: true,
+        lang: language,
+      },
+    ];
     setSettings({
-      [language === 'js' ? 'codeSnippetsJS' : 'codeSnippetsCSS']: snippets,
+      [language === 'js' ? 'codeSnippetsJS' : 'codeSnippetsCSS']: nextSnippets,
     });
     showToast('Snippet saved successfully');
     jumpTo('first'); // Go back to settings tab
@@ -161,6 +169,7 @@ const CodeRoute = ({
       </Row>
 
       <TextInput
+        key={`${language}_${editIndex ?? 'new'}`}
         placeholder={'Snippet name'}
         defaultValue={title}
         onChangeText={setTitle}

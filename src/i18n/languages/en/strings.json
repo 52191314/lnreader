@@ -292,6 +292,8 @@
     "setModalEmptyMsg": "You have no categories. Tap the Edit button to create one for organizing your library"
   },
   "repositories": {
+    "addRepositoryTitle": "Add repository?",
+    "addRepositoryWarning": "Are you sure you want to add the following repository?\n\n%{url}\n\nOnly add repositories from sources you trust.",
     "disable": "Disable",
     "disableTitle": "Disable repository?",
     "disableWarning": "LNReader will stop checking %{name}. Its plugins will be hidden unless another enabled repository provides them. Installed plugins will remain installed.",

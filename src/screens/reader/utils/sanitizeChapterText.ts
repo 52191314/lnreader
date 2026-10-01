@@ -40,7 +40,7 @@ const getPluginIssueReportUrl = (
 };
 
 /** Built once: rebuilding it per chapter allocates the whole tag list again. */
-const sanitizeOptions: sanitizeHtml.IOptions = {
+export const sanitizeOptions: sanitizeHtml.IOptions = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
     'html',
     'head',
@@ -54,7 +54,6 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     'audio',
     'video',
     'source',
-    'object',
     'svg',
     'math',
     'title',
@@ -98,7 +97,7 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     link: ['rel', 'type', 'href', 'media'],
     meta: ['charset', 'name', 'content', 'http-equiv'],
   },
-  allowedSchemes: ['data', 'http', 'https', 'file'],
+  allowedSchemes: ['data', 'http', 'https'],
 };
 
 export const sanitizeChapterText = (

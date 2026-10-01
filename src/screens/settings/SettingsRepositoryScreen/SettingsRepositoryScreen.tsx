@@ -1,8 +1,13 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { FlatList, ListRenderItemInfo, StyleSheet } from 'react-native';
 import { FAB, Portal } from 'react-native-paper';
 
-import { Appbar, EmptyView, SafeAreaView } from '@components';
+import {
+  Appbar,
+  ConfirmationDialog,
+  EmptyView,
+  SafeAreaView,
+} from '@components';
 
 import {
   createRepository,
@@ -11,7 +16,7 @@ import {
   updateRepository,
 } from '@database/queries/RepositoryQueries';
 import { Repository } from '@database/types';
-import { useBoolean } from '@hooks/index';
+import useBoolean from '@hooks/common/useBoolean';
 import { usePluginActions, useTheme } from '@hooks/persisted';
 import { getString } from '@i18n/translations';
 
@@ -91,11 +96,36 @@ const SettingsBrowseScreen = ({
     [refreshPlugins, toggleRepository, upsertRepository],
   );
 
-  useEffect(() => {
-    if (params?.url) {
-      upsertRepository(params.url);
+  const normalizedUrl = params?.url?.trim() || undefined;
+  const [prevUrl, setPrevUrl] = useState<string | undefined>(normalizedUrl);
+  const [pendingRepoUrl, setPendingRepoUrl] = useState<string | null>(
+    normalizedUrl ?? null,
+  );
+
+  if (normalizedUrl !== prevUrl) {
+    setPrevUrl(normalizedUrl);
+    if (normalizedUrl) {
+      setPendingRepoUrl(normalizedUrl);
     }
-  }, [params, upsertRepository]);
+  }
+
+  const handleConfirmAddRepo = useCallback(async () => {
+    if (pendingRepoUrl) {
+      const urlToAdd = pendingRepoUrl;
+      setPendingRepoUrl(null);
+      navigation.setParams({ url: undefined });
+      try {
+        await upsertRepository(urlToAdd);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : String(error));
+      }
+    }
+  }, [navigation, pendingRepoUrl, upsertRepository]);
+
+  const handleDismissAddRepo = useCallback(() => {
+    setPendingRepoUrl(null);
+    navigation.setParams({ url: undefined });
+  }, [navigation]);
 
   return (
     <SafeAreaView excludeTop>
@@ -135,6 +165,17 @@ const SettingsBrowseScreen = ({
           visible={addRepositoryModalVisible}
           closeModal={closeAddRepositoryModal}
           upsertRepository={upsertRepository}
+        />
+        <ConfirmationDialog
+          visible={Boolean(pendingRepoUrl)}
+          title={getString('repositories.addRepositoryTitle')}
+          message={getString('repositories.addRepositoryWarning', {
+            url: pendingRepoUrl ?? '',
+          })}
+          confirmLabel={getString('common.add')}
+          confirmTone="primary"
+          onConfirm={handleConfirmAddRepo}
+          onDismiss={handleDismissAddRepo}
         />
       </Portal>
     </SafeAreaView>

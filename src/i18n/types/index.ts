@@ -251,6 +251,8 @@ export interface StringMap {
   'categories.local': 'string';
   'categories.setCategories': 'string';
   'categories.setModalEmptyMsg': 'string';
+  'repositories.addRepositoryTitle': 'string';
+  'repositories.addRepositoryWarning': 'string';
   'repositories.disable': 'string';
   'repositories.disableTitle': 'string';
   'repositories.disableWarning': 'string';
